@@ -16,15 +16,15 @@ module GData
   module Client
     class FusionTables < Base
       class Table
-        attr_reader :headers, :id, :name                      
-        
+        attr_reader :headers, :id, :name
+
         # configures headers hash and sets up
         #
         # eg options: {:table_id => "x", :name => "y"}
         #
         def initialize client, options
-          raise ArgumentError, "need ft client" if client.class != GData::Client::FusionTables 
-          raise ArgumentError, "need table_id and name hash" if !options.has_key?(:name) || !options.has_key?(:table_id) 
+          raise ArgumentError, "need ft client" if client.class != GData::Client::FusionTables
+          raise ArgumentError, "need table_id and name hash" if !options.has_key?(:name) || !options.has_key?(:table_id)
           @client = client
           @id = options[:table_id]
           @name = options[:name]
@@ -36,12 +36,12 @@ module GData
         def describe
           GData::Client::FusionTables::Data.parse(@client.sql_get("DESCRIBE #{@id}")).body
         end
-                
+
         # Runs select and returns data obj
         #
         # Define columns and SQL conditions separatly
-        # 
-        # See http://code.google.com/apis/fusiontables/docs/developers_reference.html#Select 
+        #
+        # See http://code.google.com/apis/fusiontables/docs/developers_reference.html#Select
         #
         # use columns=ROWID to select row ids
         #
@@ -49,14 +49,14 @@ module GData
           sql = "SELECT #{columns} FROM #{@id} #{conditions}"
           GData::Client::FusionTables::Data.parse(@client.sql_get(sql)).body
         end
-        
+
         # Returns a count of rows. SQL conditions optional
         #
         def count conditions=nil
           select("count()", conditions).first.values.first.to_i
         end
-        
-        
+
+
         # Outputs data to an array of concatenated INSERT SQL statements
         #
         # format should be:
@@ -66,13 +66,13 @@ module GData
         # Fields are escaped and formatted for FT based on type
         #
         def insert data
-          
+
           # encode values to insert
           data = encode data
-          
+
           # Chunk up the data and send
           chunk = ""
-          data.each_with_index do |d,i|            
+          data.each_with_index do |d,i|
             chunk << "INSERT INTO #{@id} (#{ d.keys.join(",") }) VALUES (#{ d.values.join(",") });"
             if (i+1) % 500 == 0 || (i+1) == data.size
               begin
@@ -80,63 +80,63 @@ module GData
                 chunk = ""
               rescue => e
                 raise "INSERT to table:#{@id} failed on row #{i} with #{e}"
-              end  
-            end  
+              end
+            end
           end
-        end                
+        end
 
         # Runs update on rows and return data obj
         # No bulk update, so may aswell drop table and start again
-        def update row_id, data          
+        def update row_id, data
           data = encode([data]).first
           data = data.to_a.map{|x| x.join("=")}.join(", ")
-          
+
           sql = "UPDATE #{@id} SET #{data} WHERE ROWID = #{row_id}"
           GData::Client::FusionTables::Data.parse(@client.sql_post(sql)).body
         end
-        
+
         # delete row
         # no bulk delete so may aswell drop table and start again
         def delete row_id
           sql = "DELETE FROM #{@id} WHERE rowid='#{row_id}'"
           GData::Client::FusionTables::Data.parse(@client.sql_post(sql)).body
         end
-        
+
         # Delete all the data from one table
         def truncate!
           GData::Client::FusionTables::Data.parse(@client.sql_post("DELETE FROM #{@id}")).body
         end
-        
+
         def get_headers
           @headers ||= describe
-        end                  
-        
+        end
+
         def encode data
           data.inject([]) do |ar,h|
             ret = {}
-            h.each do |key, value|              
+            h.each do |key, value|
               ret["'#{key.to_s}'"] = case get_datatype(key)
                 when "number"   then  "#{value}"
                 when "datetime" then  "'#{value.strftime("%m-%d-%Y %H:%M:%S")}'"
-                else                  "'#{value.gsub(/\\/, '\&\&').gsub(/'/, "''")}'"                            
+                else                  "'#{value.gsub(/\\/, '\&\&').gsub(/'/, "''")}'"
               end
             end
             ar << ret
-            ar      
+            ar
           end
-        end  
-                
-        # 
+        end
+
+        #
         # Returns datatype of given column name
         #
         def get_datatype column_name
           get_headers
-          
+
           @headers.each do |h|
             return h[:type] if h[:name] == column_name.to_s
-          end            
+          end
           raise ArgumentError "The column doesn't exist"
-        end      
+        end
       end
     end
   end
