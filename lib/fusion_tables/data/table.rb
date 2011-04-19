@@ -92,7 +92,7 @@ module GData
           data = encode([data]).first
           data = data.to_a.map{|x| x.join("=")}.join(", ")
 
-          sql = "UPDATE #{@id} SET #{data} WHERE ROWID = #{row_id}"
+          sql = "UPDATE #{@id} SET #{data} WHERE ROWID = '#{row_id}'"
           GData::Client::FusionTables::Data.parse(@client.sql_post(sql)).body
         end
 
